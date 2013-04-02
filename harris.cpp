@@ -84,7 +84,6 @@ int main(  )
   //cornerHarris_demo( 0, 0 );
 
   waitKey(0);
-  return(0);
 }
 
 /** @function cornerHarris_demo */
