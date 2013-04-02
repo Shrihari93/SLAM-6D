@@ -18,13 +18,13 @@ typedef struct meanvar meanvar;
 struct hcorners{
     double x;
     double y;
-}
+};
 typedef struct hcorners hcorners;
 
 struct disp{
     double x_disp;
     double y_disp;
-}
+};
 typedef struct disp disp;
 struct point{
 	double x;
@@ -37,11 +37,11 @@ int main(){
 }
 
 void computeBasicDisparity(IplImage *aft,IplImage *fore,IplImage *hc,meanvar *stat1,meanvar* stat2,int row,int col){
-	int i=j=0;
+	int i=0, j=0;
 	int k,l,m,n;
-	CVScalar s,s1,s2;
+	CvScalar s,s1,s2;
 	int cnt=0;
-	d
+	
 
 	for(i=0;i<row;i++){
 
@@ -57,7 +57,6 @@ void computeBasicDisparity(IplImage *aft,IplImage *fore,IplImage *hc,meanvar *st
 	point arr2[cnt];
 	disp mat[row*col];
 	for(i=0;i<row;i++){
-
 		for(j=0;j<col;j++){
 			s=cvGet2D(hc,i,j);
 			if(s.val[0]>0){
@@ -78,24 +77,24 @@ void computeBasicDisparity(IplImage *aft,IplImage *fore,IplImage *hc,meanvar *st
          x=arr[i].x;
          y=arr[i].y;
          max_corr=-1;
-         start_row=(x-2>=0)?x-2:0
+         start_row=(x-2>=0)?x-2:0;
          start_col=(y-2<=0)?y-2:0;
          no_row=(start_row+4>=row)?row-start_row:5;
          no_row=(start_col+4>=col)?col-start_col:5;
-         mean1=stat1[nrows*start_row+start_col].mean;         
-         var1=stat1[nrows*start_row+start_col].var;
+         mean1=stat1[no_row*start_row+start_col].mean;         
+         var1=stat1[no_row*start_row+start_col].var;
          
          cov=0;
          sum_xy=0;
          for(k=0;k<row;k++){
          	for(l=0;l<col;l++){
-         		mean2=stat2[nrows*k+l].mean;         
-                var2=stat2[nrows*k+l].var;
+         		mean2=stat2[no_row*k+l].mean;         
+                var2=stat2[no_row*k+l].var;
                 if(k+no_row>=row|| l+no_col>=col)
                 	continue;
                 sum_xy=0;
-                mean2=stat2[nrows*k+l].mean;         
-                var2=stat2[nrows*k+l].var;
+                mean2=stat2[no_row*k+l].mean;         
+                var2=stat2[no_row*k+l].var;
 
 
                 for(m=0;m<no_row;m++){
@@ -111,17 +110,12 @@ void computeBasicDisparity(IplImage *aft,IplImage *fore,IplImage *hc,meanvar *st
                 if(corr>max_corr){
                 	max_corr=corr;
                 	mat[x*row+y].x_disp=x-k;
-                	mat[]
+                	mat[x*row+y].y_disp = y-l;
+                    arr2[i].x = x;
+                    arr2[i].y = x-k;
                 }
-
-
-
-
          	}
-
-         }
-
-
+        }
 	}
 }
 
