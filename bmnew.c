@@ -94,6 +94,60 @@ float covariance(const IplImage* left,const IplImage* right,int il,int jl,int ir
 	//printf("\n COVARIANCE ~ %f",cov);
 	return cov;
 }
+float mean(const IplImage* in,const int iwindowstart,const int jwindowstart,const int blocksize)
+{
+	int i,j;
+	float mean=0;
+	for(i=iwindowstart;i<(blocksize+iwindowstart);i++)
+	{
+		for(j=jwindowstart;j<(blocksize+jwindowstart);j++)
+		{
+			mean=mean+abs(*IMGDATA(in,i,j,0));
+		}
+	}
+	mean=mean/(blocksize*blocksize);
+	return mean;
+}
+float var(const IplImage*in,const int iwindowstart,const int jwindowstart,const int blocksize)
+{
+	float vari=0;
+	int i,j;
+	float temp;
+	float m;
+	m=mean(in,iwindowstart,jwindowstart,blocksize);
+	for(i=iwindowstart;i<(blocksize+iwindowstart);i++)
+	{
+		for(j=jwindowstart;j<(blocksize+jwindowstart);j++)
+		{
+			temp=(abs(*IMGDATA(in,i,j,0))-m);
+			vari=vari+temp*temp;
+		}
+	}
+	return vari;
+}
+float newcorr(const IplImage *left,const IplImage* right,const int il,const int jl,const int ir,const int jr ,const int blocksize)
+{
+	float corr=0;
+	int i,j;
+	float mx,my;
+	float vx,vy;
+	mx=mean(left,il,jl,blocksize);
+	my=mean(right,ir,jr,blocksize);
+	vx=var(left,il,jl,blocksize);
+	vy=var(right,ir,jr,blocksize);
+	for(i=0;i<blocksize;i++)
+	{
+		for(j=0;j<blocksize;j++)
+		{
+			corr=corr+(abs(*IMGDATA(left,il+i,jl+j,0))-mx)*(abs(*IMGDATA(right,ir+i,jr+j,0))-my);
+		}
+	}
+	//printf("\n CORRELATON ~ %f, VARIANCE ~ %f ,VARIANCE ~ %f",corr,vx,vy );
+	corr=corr/(sqrt(vx)*sqrt(vy));
+	corr=corr/(blocksize*blocksize);
+	//printf("\n CORRELATON ~ %f",corr );
+	return corr;
+}
 float variance(const IplImage* in,int il,int jl,const int blocksize)
 {
 	float exx=0;
@@ -104,13 +158,15 @@ float variance(const IplImage* in,int il,int jl,const int blocksize)
 	{
 		for(j=jl;j<jl+blocksize;j++)
 		{
-			exx=exx+abs(*IMGDATA(in,il,jl,0))*abs(*IMGDATA(in,il,jl,0));
-			ex=ex+abs(*IMGDATA(in,il,jl,0));
+			exx=exx+abs(*IMGDATA(in,i,j,0))*abs(*IMGDATA(in,i,j,0));
+			ex=ex+abs(*IMGDATA(in,i,j,0));
 		}
 	}
-	var=(exx-ex*ex)/(blocksize*blocksize);
+	ex=ex/(blocksize*blocksize);
+	exx=exx/(blocksize*blocksize);
+	var=exx-ex*ex;
 	var=abs(var);
-	//printf("\n VARIANCE ~ %f",var);
+	printf("\n       VARIANCE ~ %f",var);
 	return var;
 }
 float correlation(const IplImage *left,const IplImage* right,int il,int jl,int ir,int jr ,const int blocksize)
@@ -118,6 +174,45 @@ float correlation(const IplImage *left,const IplImage* right,int il,int jl,int i
 	float corr;
 	corr=covariance(left,right,il,jl,ir,jr,blocksize)/(sqrt(variance(left,il,jl,blocksize))*sqrt(variance(right,ir,jr,blocksize)));
 	//printf("\nCORRELATON~ %f",corr);
+	return corr;
+}
+float ncorrelation(const IplImage *left,const IplImage* right,const int il,const int jl,const int ir,const int jr ,const int blocksize)
+{
+	float corr;
+	float exy=0,ex=0,ey=0;
+	int i,j;
+	for(i=il;i<il+blocksize;i++)
+	{
+		for(j=jl;j<jl+blocksize;j++)
+		{
+			ex=ex+abs(*IMGDATA(left,i,j,0));
+		}
+	}
+	ex=ex/(blocksize*blocksize);
+	for(i=ir;i<ir+blocksize;i++)
+	{
+		for(j=jr;j<jr+blocksize;j++)
+		{
+			ey=ey+abs(*IMGDATA(right,i,j,0));
+		}
+	}
+	ey=ey/(blocksize*blocksize);
+
+	for(i=0;i<blocksize;i++)
+	{
+		for(j=0;j<blocksize;j++)
+		{
+			corr=corr+(abs(*IMGDATA(left,il+i,jl+j,0))-ex)*(abs(*IMGDATA(right,ir+i,jr+j,0))-ey);
+		}
+	}
+	if(variance(left,il,jl,blocksize)==0||variance(right,ir,jr,blocksize)==0)
+	{
+		corr=-10;
+	}
+	else{
+	corr=corr/(sqrt(variance(left,il,jl,blocksize))*sqrt(variance(right,ir,jr,blocksize)));
+	}
+	printf("\nCORRELATON~ %f",corr);
 	return corr;
 }
 int sumofsquaredaddition(IplImage* left,IplImage* right,int il,int jl,int ir,int jr,int blocksize)
@@ -165,14 +260,14 @@ void StereoExhaustiveBM(const IplImage* left,const IplImage* right,IplImage* dst
 	float fsosd;
 	IplImage *leftm;
     IplImage *rightm;
-
+    printf("\nLLeft width %d,Right Width % d ",left->width,left->height);
     leftm=createImage(left->width,left->height,3);
     rightm=createImage(right->width,right->height,3);
-
+	//printf("******done\n\n\n");
 	//cvNamedWindow("Disp",CV_WINDOW_NORMAL);
 	xdst=createImage(left->width,left->height,1);
 	ydst=createImage(right->width,right->height,1);
-	printf("******done\n\n\n");
+	//printf("******done\n\n\n");
 	cvNamedWindow("XDisp",CV_WINDOW_AUTOSIZE);
 	cvNamedWindow("YDisp",CV_WINDOW_AUTOSIZE);
 	cvNamedWindow("Position on Left",CV_WINDOW_AUTOSIZE);
@@ -208,14 +303,15 @@ void StereoExhaustiveBM(const IplImage* left,const IplImage* right,IplImage* dst
 				jrtempt=left->height-blocksize;
 			}
 			
-			for(ir=irtempf;ir<=irtempt;ir++)
+			for(ir=irtempf;ir<irtempt;ir++)
 			//for(ir=0;ir<=right->width-blocksize;ir++)
 			{
 				//printf("\n Block In Right Image %d %d",ir,jr);
-				for(jr=jrtempf;jr<=jrtempt;jr++)
+				for(jr=jrtempf;jr<jrtempt;jr++)
 				//for(jr=0;jr<right->height-blocksize;jr++)
 				{
-					fsosd=correlation(left,right,il,jl,ir,jr,blocksize);
+					fsosd=newcorr(left,right,il,jl,ir,jr,blocksize);
+					//fsosd=ncorrelation(left,right,il,jl,ir,jr,blocksize);
 					//fsosd=sumofsquaredifference(left,right,il,jl,ir,jr,blocksize);
 					//printf("\n CORRELATON ~ %f",fsosd );
 					if(fsosd>msosd)
@@ -234,7 +330,7 @@ void StereoExhaustiveBM(const IplImage* left,const IplImage* right,IplImage* dst
 					}
 				}
 			}
-			cvWaitKey(5);
+			cvWaitKey(600);
 			cvDrawRectangle(left,leftm,blocksize,il,jl,1);
             cvDrawRectangle(right,rightm,blocksize,ircorr,jrcorr,2);
             cvShowImage("Position on Left",leftm);
@@ -265,17 +361,19 @@ void StereoExhaustiveBM(const IplImage* left,const IplImage* right,IplImage* dst
 }
 int main()
 {
-	int blocksize=100;
+	int blocksize=25;
 	int threshold=10000;
-	int xlimit=100;
-	int ylimit=100;
-	//IplImage* aft=cvLoadImage("aft3.jpg",CV_LOAD_IMAGE_COLOR);
-    //IplImage* fore=cvLoadImage("fore3.jpg",CV_LOAD_IMAGE_COLOR);
-    IplImage* aft=cvLoadImage("scene_l.pgm",CV_LOAD_IMAGE_COLOR);
-    IplImage* fore=cvLoadImage("scene_r.pgm",CV_LOAD_IMAGE_COLOR);
+	int xlimit=50;
+	int ylimit=50;
+	IplImage* aft=cvLoadImage("aft3.jpg",CV_LOAD_IMAGE_COLOR);
+    IplImage* fore=cvLoadImage("fore3.jpg",CV_LOAD_IMAGE_COLOR);
+    //IplImage* aft=cvLoadImage("scene_l.pgm",CV_LOAD_IMAGE_COLOR);
+    //IplImage* fore=cvLoadImage("scene_r.pgm",CV_LOAD_IMAGE_COLOR);
+    //IplImage* aft=cvLoadImage("Corners_aft.png",CV_LOAD_IMAGE_COLOR);
+    //IplImage* fore=cvLoadImage("Corners_fore.png",CV_LOAD_IMAGE_COLOR);
     IplImage* dst;
-    cvNormalize(aft,aft,0,255, CV_MINMAX );
-    cvNormalize(fore,fore,0,255, CV_MINMAX );
+    //cvNormalize(aft,aft,0,255, CV_MINMAX );
+    //cvNormalize(fore,fore,0,255, CV_MINMAX );
     //cvSmooth(aft,aft,CV_GAUSSIAN,3,0,0,0);
     //cvSmooth(fore,fore,CV_GAUSSIAN,3,0,0,0);
     StereoExhaustiveBM(aft,fore,dst,blocksize,threshold,xlimit,ylimit);
