@@ -18,13 +18,14 @@ typedef struct meanvar meanvar;
 struct hcorners{
     double x;
     double y;
-}
+};
 typedef struct hcorners hcorners;
 
 struct disp{
     double x_disp;
     double y_disp;
-}
+};
+
 typedef struct disp disp;
 struct point{
 	double x;
