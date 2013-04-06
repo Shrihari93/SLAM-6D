@@ -246,33 +246,41 @@ void assignDisparity(IplImage* in,int il,int jl,int blocksize,int value,int chan
 		}
 	}
 }
-void StereoExhaustiveBM(const IplImage* left,const IplImage* right,IplImage* dst,const int blocksize,const int threshold,const int xlimit,const int ylimit)
+void StereoExhaustiveBM(const IplImage* left,const IplImage* right,IplImage* dst,IplImage* xdst,IplImage* ydst,const int blocksize,const float threshold,const int xlimit,const int ylimit)
 {
-	IplImage* xdst;
-	IplImage* ydst; 
 	int il,jl;
 	int ir,jr;
+	int i;
 	int irtempf,jrtempf;
 	int irtempt,jrtempt;
 	int ircorr,jrcorr;
 	int xshift,yshift;
 	float msosd;
 	float fsosd;
+	double arraycorr[10000];
+	int arraycount=0;
 	IplImage *leftm;
     IplImage *rightm;
-    printf("\nLLeft width %d,Right Width % d ",left->width,left->height);
+    int stat[10000];
+    
     leftm=createImage(left->width,left->height,3);
     rightm=createImage(right->width,right->height,3);
 	//printf("******done\n\n\n");
 	//cvNamedWindow("Disp",CV_WINDOW_NORMAL);
-	xdst=createImage(left->width,left->height,1);
-	ydst=createImage(right->width,right->height,1);
 	//printf("******done\n\n\n");
-	cvNamedWindow("XDisp",CV_WINDOW_AUTOSIZE);
-	cvNamedWindow("YDisp",CV_WINDOW_AUTOSIZE);
-	cvNamedWindow("Position on Left",CV_WINDOW_AUTOSIZE);
-	cvNamedWindow("Position on Right",CV_WINDOW_AUTOSIZE);
-	printf("done");
+	//cvNamedWindow("XDisp",CV_WINDOW_AUTOSIZE);
+	//cvNamedWindow("YDisp",CV_WINDOW_AUTOSIZE);
+	//cvNamedWindow("Position on Left",CV_WINDOW_AUTOSIZE);
+	//cvNamedWindow("Position on Right",CV_WINDOW_AUTOSIZE);
+	double min,max;
+	for(i=0;i<1000;i++)
+	{
+		arraycorr[i]=0;
+	}
+	for(i=0;i<1000;i++)
+	{
+		stat[i]=0;
+	}
 	for(il=0;il<=left->width-blocksize;il+=blocksize)
 	{	
 		for(jl=0;jl<=left->height-blocksize;jl+=blocksize)
@@ -330,56 +338,115 @@ void StereoExhaustiveBM(const IplImage* left,const IplImage* right,IplImage* dst
 					}
 				}
 			}
-			cvWaitKey(600);
-			cvDrawRectangle(left,leftm,blocksize,il,jl,1);
-            cvDrawRectangle(right,rightm,blocksize,ircorr,jrcorr,2);
-            cvShowImage("Position on Left",leftm);
-			cvShowImage("Position on Right",rightm);
-			//if(msosd<threshold)
-			//{
-				
-			assignDisparity(xdst,il,jl,blocksize,xshift,0);
-			assignDisparity(ydst,il,jl,blocksize,yshift,0);
-			//printf("\n Now at ~ %d %d",il,jl);
-			//cvWaitKey(100);
-			cvShowImage("XDisp",xdst);
-			cvShowImage("YDisp",ydst);
-			//}
+			//cvWaitKey(10);
+			//printf("\nCORRELATON is %f",msosd);
+			arraycorr[arraycount]=msosd;
+			arraycount++;
+			//printf("\nCORRELATON ~ %f".msosd);
+			//cvDrawRectangle(left,leftm,blocksize,il,jl,1);
+            //cvDrawRectangle(right,rightm,blocksize,ircorr,jrcorr,2);
+            //cvShowImage("Position on Left",leftm);
+			//cvShowImage("Position on Right",rightm);
+			if(msosd>threshold)
+			{
+				assignDisparity(xdst,il,jl,blocksize,4*xshift,0);
+				assignDisparity(ydst,il,jl,blocksize,4*yshift,0);
+				//printf("\n Now at ~ %d %d",il,jl);
+				//cvWaitKey(100);
+				//cvShowImage("XDisp",xdst);
+				//cvShowImage("YDisp",ydst);
+			}
+			else{
+				//printf("\n  Below Threshold");
+				assignDisparity(xdst,il,jl,blocksize,0,0);
+				assignDisparity(ydst,il,jl,blocksize,0,0);
+				//cvShowImage("XDisp",xdst);
+				//cvShowImage("YDisp",ydst);
+			}
 		}
 		//assignDisparity(dst,il,jl,blocksize,xshift,0);//B
 		//assignDisparity(dst,il,jl,blocksize,yshift,2);//R
 		//cvWaitKey(500);
 		
 	}
+	cvNamedWindow("XDisp",CV_WINDOW_AUTOSIZE);
+	cvNamedWindow("YDisp",CV_WINDOW_AUTOSIZE);
+	cvShowImage("XDisp",xdst);
+	cvShowImage("YDisp",ydst);
+	printf("\nPress Escape TO Show Statistics for CORRELATON");
 	cvWaitKey(0);
+	
+	min=1;
+	max=-1;
+	
+	for(i=0;i<arraycount;i++)
+	{
+		//arraycorr[i]*1000;
+		if(arraycorr[i]>max)
+		{
+			max=arraycorr[i];
+		}
+		if(arraycorr[i]<min)
+		{
+			min=arraycorr[i];
+		}
+		//stat[(int)(arraycorr[i]*1000)]=stat[(int)(arraycorr[i]*1000)]+1;
+	}
+	printf("\nMAXIMUM nCORRELATON~ %lf \nMINIMUM nCORRELATON %lf \n",max,min);
+	/*
+	printf("\n ********STATISTICS******** \n");
+	for(i=0;i<1000;i++)
+	{
+		if(stat[i]!=0)
+		{
+			printf("\nCORRELATION IN RANGE [%lf,%lf]--> %d",(double)i/1000,(double)(i+1)/1000,stat[i]);
+		}
+	}
+	*/
+	cvWaitKey(0);
+    /*
     cvNormalize(xdst,xdst,0,255, CV_MINMAX );
     cvNormalize(ydst,ydst,0,255, CV_MINMAX );	
 	cvShowImage("XDisp",xdst);
 	cvShowImage("YDisp",ydst);
 	cvWaitKey(0);
-
+	cvSmooth(xdst,xdst,CV_GAUSSIAN,5,0,0,0);
+	cvSmooth(ydst,ydst,CV_GAUSSIAN,5,0,0,0);
+	cvShowImage("XDisp",xdst);
+	cvShowImage("YDisp",ydst);
+	cvWaitKey(0);
+	*/
 }
 int main()
 {
-	int blocksize=25;
-	int threshold=10000;
-	int xlimit=50;
-	int ylimit=50;
-	IplImage* aft=cvLoadImage("aft3.jpg",CV_LOAD_IMAGE_COLOR);
-    IplImage* fore=cvLoadImage("fore3.jpg",CV_LOAD_IMAGE_COLOR);
+	int blocksize=15;
+	//float threshold=0.001;
+	float threshold=0.00001;
+	int xlimit=20;
+	int ylimit=20;
+	IplImage *xdst;
+	IplImage *ydst;
+	IplImage* aft=cvLoadImage("aft3s.jpg",CV_LOAD_IMAGE_COLOR);
+    IplImage* fore=cvLoadImage("fore3s.jpg",CV_LOAD_IMAGE_COLOR);
     //IplImage* aft=cvLoadImage("scene_l.pgm",CV_LOAD_IMAGE_COLOR);
     //IplImage* fore=cvLoadImage("scene_r.pgm",CV_LOAD_IMAGE_COLOR);
     //IplImage* aft=cvLoadImage("Corners_aft.png",CV_LOAD_IMAGE_COLOR);
     //IplImage* fore=cvLoadImage("Corners_fore.png",CV_LOAD_IMAGE_COLOR);
     IplImage* dst;
-    //cvNormalize(aft,aft,0,255, CV_MINMAX );
-    //cvNormalize(fore,fore,0,255, CV_MINMAX );
+    dst=createImage(aft->width,aft->height,3);
+    xdst=createImage(aft->width,aft->height,1);
+    ydst=createImage(aft->width,aft->height,1);
+    cvNormalize(aft,aft,0,255,CV_MINMAX);
+    cvNormalize(fore,fore,0,255,CV_MINMAX);
     //cvSmooth(aft,aft,CV_GAUSSIAN,3,0,0,0);
     //cvSmooth(fore,fore,CV_GAUSSIAN,3,0,0,0);
-    StereoExhaustiveBM(aft,fore,dst,blocksize,threshold,xlimit,ylimit);
+    StereoExhaustiveBM(aft,fore,dst,xdst,ydst,blocksize,threshold,xlimit,ylimit);
+    cvSaveImage("XDisparity.jpg",xdst);
+    cvSaveImage("YDisparity.jpg",ydst);
+    printf("\nImages Are Saved");
     //cvNamedWindow("Disparity",CV_WINDOW_AUTOSIZE);
     //cvShowImage("Disparity",dst);
-    cvWaitKey(0);
+    //cvWaitKey(0);
     //cvDestroyWindow("Disparity");
 	return 0;
 }
