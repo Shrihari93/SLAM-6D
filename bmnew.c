@@ -330,7 +330,7 @@ void StereoExhaustiveBM(const IplImage* left,const IplImage* right,IplImage* dst
 					}
 				}
 			}
-			cvWaitKey(600);
+			cvWaitKey(10);
 			cvDrawRectangle(left,leftm,blocksize,il,jl,1);
             cvDrawRectangle(right,rightm,blocksize,ircorr,jrcorr,2);
             cvShowImage("Position on Left",leftm);
@@ -365,15 +365,15 @@ int main()
 	int threshold=10000;
 	int xlimit=50;
 	int ylimit=50;
-	IplImage* aft=cvLoadImage("aft3.jpg",CV_LOAD_IMAGE_COLOR);
-    IplImage* fore=cvLoadImage("fore3.jpg",CV_LOAD_IMAGE_COLOR);
+	IplImage* aft=cvLoadImage("scaled-2/aft-scaled-4.jpg",CV_LOAD_IMAGE_COLOR);
+    IplImage* fore=cvLoadImage("scaled-2/fore-4.jpg",CV_LOAD_IMAGE_COLOR);
     //IplImage* aft=cvLoadImage("scene_l.pgm",CV_LOAD_IMAGE_COLOR);
     //IplImage* fore=cvLoadImage("scene_r.pgm",CV_LOAD_IMAGE_COLOR);
     //IplImage* aft=cvLoadImage("Corners_aft.png",CV_LOAD_IMAGE_COLOR);
     //IplImage* fore=cvLoadImage("Corners_fore.png",CV_LOAD_IMAGE_COLOR);
     IplImage* dst;
-    //cvNormalize(aft,aft,0,255, CV_MINMAX );
-    //cvNormalize(fore,fore,0,255, CV_MINMAX );
+    cvNormalize(aft,aft,0,255, CV_MINMAX );
+    cvNormalize(fore,fore,0,255, CV_MINMAX );
     //cvSmooth(aft,aft,CV_GAUSSIAN,3,0,0,0);
     //cvSmooth(fore,fore,CV_GAUSSIAN,3,0,0,0);
     StereoExhaustiveBM(aft,fore,dst,blocksize,threshold,xlimit,ylimit);
