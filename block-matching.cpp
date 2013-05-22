@@ -133,6 +133,29 @@ namespace BlockMatching
 		dst.locateROI(size, ofs);
 		return Rect(ofs.x+minDelJ, ofs.y+minDelI, blockSize, blockSize);
 	}
+	Rect matchABlock2(Mat block1, Mat dst, int match_method = CV_TM_CCOEFF_NORMED)
+	{
+		static int match_cols = 2*WINDOWSIZE + BLOCKSIZE - BLOCKSIZE + 1;
+		static int match_rows = 2*WINDOWSIZE + BLOCKSIZE - BLOCKSIZE + 1;	
+		static Mat result(match_cols, match_rows, CV_32FC1);
+		assert(block1.rows == block1.cols);
+		int blockSize = block1.rows;
+		//Assuming result already exists! and size is ok!
+		// Do the Matching and Normalize
+		matchTemplate( dst, block1, result, match_method );
+		normalize( result, result, 0, 1, NORM_MINMAX, -1, Mat() );
+		double minVal; double maxVal; Point minLoc; Point maxLoc;
+	    Point matchLoc;
+	    minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
+	    /// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
+	    if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
+    	{ matchLoc = minLoc; }
+	    else
+   		{ matchLoc = maxLoc; }
+   		Size size; Point ofs;
+		dst.locateROI(size, ofs);
+		return Rect(ofs.x+matchLoc.x, ofs.y+matchLoc.y, blockSize, blockSize);
+	}
 }
 void mouseCallback(int evt, int x, int y, int flags, void *param)//Correct orr not?
 {
@@ -179,7 +202,7 @@ void mouseCallback2(int evt, int x, int y, int flags, void *param)//Correct orr 
 		cv::rectangle(display2, roi, Scalar(128));
 		Mat roi_src2 = mp->src2.rowRange(rowStart, rowEnd).colRange(colStart, colEnd);
 		//searching only in roi
-		Rect rect2 = BlockMatching::matchABlock(block, roi_src2);
+		Rect rect2 = BlockMatching::matchABlock2(block, roi_src2);
 		cv::rectangle(display2, rect2, Scalar(255, 0, 0));
 		cout << rect2 << endl;
 		imshow(mp->windowName1.c_str(), display1);
@@ -189,8 +212,8 @@ void mouseCallback2(int evt, int x, int y, int flags, void *param)//Correct orr 
 
 int main(int argc, char const *argv[])
 {
-	Mat img1 = imread("resized-images/fore2.jpg",CV_LOAD_IMAGE_GRAYSCALE);
-	Mat img2 = imread("resized-images/aft2.jpg",CV_LOAD_IMAGE_GRAYSCALE);
+	Mat img1 = imread(argv[1],CV_LOAD_IMAGE_GRAYSCALE);
+	Mat img2 = imread(argv[2],CV_LOAD_IMAGE_GRAYSCALE);
 	/*Mat result = BlockMatching::blockMatching(img1, img2, BLOCKSIZE);
 	vector<Mat> planes;
 	split(result, planes);
