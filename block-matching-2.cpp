@@ -14,8 +14,8 @@ using namespace std;
 
 typedef Vec2s DisparityElemType;
 // All blocksize/windowsize definitions here global.
-static const int BLOCKSIZE = 30;
-static const int BLOCK_MULT_Y = 3;
+static const int BLOCKSIZE = 40;
+static const int BLOCK_MULT_Y = 2;
 static const int BLOCK_MULT_X = 2;
 static const int WINDOWSIZE_Y = BLOCKSIZE * BLOCK_MULT_Y;
 static const int WINDOWSIZE_X = BLOCKSIZE * BLOCK_MULT_X;
@@ -94,6 +94,7 @@ namespace BlockMatching
 		return Rect(ofs.x+matchLoc.x, ofs.y+matchLoc.y, blockSize, blockSize);
 	}
 	void sanitize(int &x, int min, int max) {
+		assert(min <= max);
 		if(x<min)
 			x = min;
 		else if(x > max)
@@ -149,6 +150,9 @@ namespace BlockMatching
 			}
 		}
 		return result;
+	}
+	void outlierRemoval(Mat &result) {
+		
 	}
 	Mat blockMatchingLeveled(Mat &disparityPrev, Mat src1, Mat src2)
 	{
