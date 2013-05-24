@@ -15,8 +15,8 @@ using namespace std;
 typedef Vec2s DisparityElemType;
 // All blocksize/windowsize definitions here global.
 static const int BLOCKSIZE = 40;
-static const int BLOCK_MULT_Y = 2;
-static const int BLOCK_MULT_X = 2;
+static const int BLOCK_MULT_Y = 5;
+static const int BLOCK_MULT_X = 5;
 static const int WINDOWSIZE_Y = BLOCKSIZE * BLOCK_MULT_Y;
 static const int WINDOWSIZE_X = BLOCKSIZE * BLOCK_MULT_X;
 
@@ -100,14 +100,14 @@ namespace BlockMatching
 		else if(x > max)
 			x = max;
 	}
-	Mat blockMatching(Mat src1, Mat src2, int shiftI = 0, int shiftJ = 0)
+	Mat blockMatching(Mat src1, Mat src2, float theta, int shiftI = 0, int shiftJ = 0)
 	{
 		assert(src1.size() == src2.size());
 		///need to resize image to add border if BLOCKSIZE doesnt exactly match.		
 		Mat src1_new, src2_new;
 		copyMakeBorder(src1, src1_new, 0,  -((-src1.size().height)%BLOCKSIZE), 0, -((-src1.size().width)%BLOCKSIZE), BORDER_REPLICATE);
 		copyMakeBorder(src2, src2_new, 0,  -((-src1.size().height)%BLOCKSIZE), 0, -((-src1.size().width)%BLOCKSIZE), BORDER_REPLICATE);
-		Mat result(src1_new.size(), CV_16SC2); //channel1  = delI, channel2 = delJ
+		Mat result(src1_new.size(), CV_16SC2); //channel1  = disparity, channel2 = perpendicular
 		///Initializing mat used for storage by matchABlock2.
 		int match_cols = 2*WINDOWSIZE_X + BLOCKSIZE - BLOCKSIZE + 1;
 		int match_rows = 2*WINDOWSIZE_Y + BLOCKSIZE - BLOCKSIZE + 1;		
@@ -132,8 +132,12 @@ namespace BlockMatching
 				//finding matched rect
 				Rect rect = matchABlock2(block1, roi_src2, matchingStorage);
 				//using only shift... else is pretty useless since right now rect width and height are fixed at BLOCKSIZE
-				int delJ = abs(rect.x - j1);
-				int delI = abs(rect.y - i1); 
+				//calculating shift along theta and theta+90deg
+				float delJ = (rect.x - j1);
+				float delI = (rect.y - i1);
+
+				float dispTheta = delJ * sin(theta) + delI * cos(theta);
+				float disp90 = delJ * cos(theta) + delI * sin(theta);
 				//basic outlier removal
 				// if(delI > 30)
 				// 	delI = 0;
@@ -143,8 +147,8 @@ namespace BlockMatching
 				{
 					for (int j = j1; j < j1+BLOCKSIZE; ++j)
 					{
-						result.at<DisparityElemType >(i,j)[0] = delI;
-						result.at<DisparityElemType >(i,j)[1] = delJ;
+						result.at<DisparityElemType >(i,j)[0] = abs(dispTheta);
+						result.at<DisparityElemType >(i,j)[1] = abs(disp90);
 					}
 				}				
 			}
@@ -164,16 +168,16 @@ namespace BlockMatching
 
 int main(int argc, char const *argv[])
 {
-	if(argc < 3 || argc > 4) {
+	if(argc < 3 || argc > 5) {
 		printf("Usage: ./block-matching-2 <image1> <image2>\n");
-		printf("Optionally: ./block-matching-2 <image1> <image2> <orsa-match-file>\n");
+		printf("Optionally: ./block-matching-2 <image1> <image2> <orsa-match-file> <angle>\n");
 		exit(0);
 	}
 	Mat img1 = imread(argv[1],CV_LOAD_IMAGE_GRAYSCALE);
 	Mat img2 = imread(argv[2],CV_LOAD_IMAGE_GRAYSCALE);
 	int shiftI = 0, shiftJ = 0;
 	//Loading orsa matches
-	if(argc == 4) {
+	if(argc >= 4) {
 		string txtFile = argv[3];
 		std::ifstream f(txtFile.c_str(), ios::in);
 		int numMatches = 0;
@@ -191,17 +195,23 @@ int main(int argc, char const *argv[])
 		}
 		f.close();
 	}
+	float angle = 0;
+	if(argc == 5) {
+		angle = atof(argv[4]);
+	}
 	printf("shiftI, shiftJ = %d %d\n", shiftI, shiftJ);
 	cv::normalize(img1, img1, 0, 255, CV_MINMAX);	
 	cv::normalize(img2, img2, 0, 255, CV_MINMAX);
-	Mat result = BlockMatching::blockMatching(img1, img2, shiftI, shiftJ);
+	Mat result = BlockMatching::blockMatching(img1, img2, angle, shiftI, shiftJ);
 	vector<Mat> planes;
 	split(result, planes);
 	assert(planes.size() == 2);
+	convertScaleAbs(planes[0], planes[0]);
+	convertScaleAbs(planes[1], planes[1]);
 	// cv::normalize(planes[0], planes[0], 0, 255, CV_MINMAX);
 	// cv::normalize(planes[1], planes[1], 0, 255, CV_MINMAX);
-	imshow("i", planes[0]);
-	imshow("j", planes[1]);
+	imshow("disp", planes[0]);
+	imshow("90", planes[1]);
 	imwrite("outi.png", planes[0]);
 	imwrite("outj.png", planes[1]);
 	cv::waitKey();

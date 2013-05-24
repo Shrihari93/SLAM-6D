@@ -82,7 +82,7 @@ namespace Interpolation {
 						sum += dst.at<T>(ni, nj);
 					}
 				}
-				if(count > 2) {
+				if(count > 0) {
 					/// Some neighbour(s) valid. removing from invalid list.
 					invalidList.erase(k);
 					dst.at<T>(i,j) = (T)(sum/count);
@@ -93,6 +93,22 @@ namespace Interpolation {
 		resize(dst, dst, src.size(), 0, 0, INTER_NEAREST);
 		return dst;
 	}
+	void myFilter(Mat& src, Mat& dst) {
+		float data[][3] = { {1,1,1},
+        		            {1,-8,1},
+                		    {1,1,1}};
+		/// Update kernel size for a normalized box filter
+        Point anchor = Point( -1, -1 );
+	  	double delta = 0;
+  		int ddepth = -1;
+	  	int kernel_size = 3;
+	  	Mat d1, d2;
+	  	Mat kernel = -Mat( kernel_size, kernel_size, CV_32FC1, data)/ (float)(kernel_size*kernel_size);
+	  	filter2D(src, d1, ddepth , kernel, anchor, delta, BORDER_DEFAULT );
+	  	kernel = -kernel;
+	  	filter2D(src, d2, ddepth , kernel, anchor, delta, BORDER_DEFAULT );
+	  	dst = d1+d2;
+	}
 	/// uses sobel to find peaks on surface, applies interpolation.
 	template <class T>
 	Mat smooth(Mat &src, int blockSize) {
@@ -100,17 +116,18 @@ namespace Interpolation {
 		cv::Size origSize = src.size();
 		resize(src, src, cv::Size(src.cols/blockSize, src.rows/blockSize), 0, 0, INTER_NEAREST);
 		Mat invalids;// = Mat::zeros(src.rows, src.cols, CV_8UC1);
-		cornerHarris(src, invalids, 2, 3, 0.04);
-		normalize( invalids, invalids, 0, 255, NORM_MINMAX, CV_32FC1, Mat() );
-		convertScaleAbs(invalids, invalids);
+		// cornerHarris(src, invalids, 2, 3, 0.14);
+		// normalize( invalids, invalids, 0, 255, NORM_MINMAX, CV_32FC1, Mat() );
+		// convertScaleAbs(invalids, invalids);
 
-		Mat invalidsx, invalidsy;
-		Sobel(invalids, invalidsx, CV_16S, 1, 0, 3);
-		Sobel(invalids, invalidsy, CV_16S, 0, 1, 3);
-		invalids = invalidsx+invalidsy;
-		convertScaleAbs(invalids, invalids);
-		
-		filterThreshold<uchar>(invalids, 0, 10);
+		// Mat invalidsx, invalidsy, invalidsxy;
+		// Sobel(src, invalidsx, CV_16S, 1, 0, 3);
+		// Sobel(src, invalidsy, CV_16S, 0, 1, 3);
+		// Sobel(src, invalidsxy, CV_16S, 1, 1, 3);
+		// Mat sobInvalids = invalidsx+invalidsy+invalidsxy;
+		// convertScaleAbs(sobInvalids, sobInvalids);
+		myFilter(src, invalids);
+		filterThreshold<uchar>(invalids, 0, 20);
 		Mat dst = interpolate<T>(src, invalids, 1);
 		resize(dst, dst, origSize, 0, 0, INTER_NEAREST);
 		resize(src, src, origSize, 0, 0, INTER_NEAREST);

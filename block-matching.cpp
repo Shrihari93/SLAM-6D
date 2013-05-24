@@ -4,6 +4,7 @@
 #include <highgui/highgui.hpp>
 #include <imgproc/imgproc.hpp>
 #include <iostream>
+#include <fstream>
 using namespace cv;
 using namespace std;
 #define INF 99999999
@@ -12,7 +13,7 @@ using namespace std;
 
 typedef Vec2f DisparityElemType;
 static const int BLOCKSIZE = 30;
-static const int BLOCK_MULT = 5;
+static const int BLOCK_MULT = 3;
 static const int WINDOWSIZE = BLOCKSIZE * BLOCK_MULT;
 
 struct MouseParam //For Debugging purposes
@@ -26,6 +27,7 @@ struct MouseParam2 //For Debugging purposes
 	Mat src1, src2;
 	int blockSize;
 	std::string windowName1, windowName2;
+	int shiftI, shiftJ;
 };
 namespace BlockMatching
 {
@@ -178,6 +180,14 @@ void mouseCallback(int evt, int x, int y, int flags, void *param)//Correct orr n
 	}
 }
 
+void sanitize(int &x, int min, int max) {
+	assert(min <= max);
+	if(x<min)
+		x = min;
+	else if(x > max)
+		x = max;
+}
+
 void mouseCallback2(int evt, int x, int y, int flags, void *param)//Correct orr not?
 {
 	//assuming src1  and src2 already padded at boundaries!
@@ -194,10 +204,17 @@ void mouseCallback2(int evt, int x, int y, int flags, void *param)//Correct orr 
 		cv::rectangle(display1, rect, Scalar(0,0,255));
 		Mat block = mp->src1.rowRange(y, y+mp->blockSize).colRange(x, x+mp->blockSize);
 		//defining roi for search in src2
-		int rowStart = std::max(0, y-WINDOWSIZE);
-		int rowEnd = std::min(mp->src2.rows, y+WINDOWSIZE);
-		int colStart = std::max(0, x-WINDOWSIZE);
-		int colEnd = std::min(mp->src2.cols, x+WINDOWSIZE);
+		int cntrI = y+mp->shiftI;
+		int cntrJ = x+mp->shiftJ;
+		sanitize(cntrI, 0, mp->src2.rows-1);
+		sanitize(cntrJ, 0, mp->src2.cols-1);
+		//the start rows/cols and end rows/cols
+		int rowStart = std::max(0, cntrI-WINDOWSIZE);
+		int rowEnd = std::min(mp->src2.rows, cntrI+WINDOWSIZE);
+		int colStart = std::max(0, cntrJ-WINDOWSIZE);
+		int colEnd = std::min(mp->src2.cols, cntrJ+WINDOWSIZE);
+
+		
 		Rect roi(colStart, rowStart,  colEnd-colStart, rowEnd-rowStart);
 		cv::rectangle(display2, roi, Scalar(128));
 		Mat roi_src2 = mp->src2.rowRange(rowStart, rowEnd).colRange(colStart, colEnd);
@@ -212,8 +229,34 @@ void mouseCallback2(int evt, int x, int y, int flags, void *param)//Correct orr 
 
 int main(int argc, char const *argv[])
 {
+	if(argc < 3 || argc > 4) {
+		printf("Usage: ./block-matching <image1> <image2>\n");
+		printf("Optionally: ./block-matching <image1> <image2> <orsa-match-file>\n");
+		exit(0);
+	}
 	Mat img1 = imread(argv[1],CV_LOAD_IMAGE_GRAYSCALE);
 	Mat img2 = imread(argv[2],CV_LOAD_IMAGE_GRAYSCALE);
+	int shiftI = 0, shiftJ = 0;
+	//Loading orsa matches
+	if(argc == 4) {
+		string txtFile = argv[3];
+		std::ifstream f(txtFile.c_str(), ios::in);
+		int numMatches = 0;
+		f >> numMatches;
+		float x1, x2, y1, y2, sumX = 0, sumY = 0;
+		for (int i = 0; i < numMatches; ++i)
+		{
+			f >> x1 >> y1 >> x2 >> y2 >> ws; //assuming order of images in orsa run is same as here.
+			sumX += x2 - x1;
+			sumY += y2 - y1;
+		}
+		if(numMatches > 0) {
+			shiftI = sumY/numMatches;
+			shiftJ = sumX/numMatches;
+		}
+		f.close();
+	}
+	printf("shiftI, shiftJ = %d %d\n", shiftI, shiftJ);
 	/*Mat result = BlockMatching::blockMatching(img1, img2, BLOCKSIZE);
 	vector<Mat> planes;
 	split(result, planes);
@@ -244,6 +287,8 @@ int main(int argc, char const *argv[])
 	mp.blockSize = BLOCKSIZE;
 	mp.windowName1 = WINDOWNAME1;
 	mp.windowName2 = WINDOWNAME2;
+	mp.shiftJ = shiftJ;
+	mp.shiftI = shiftI;
 	cv::setMouseCallback(WINDOWNAME1, mouseCallback2, &mp);
 	imshow(WINDOWNAME1, img1);
 	imshow(WINDOWNAME2, img2);
