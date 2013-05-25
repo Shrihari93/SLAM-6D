@@ -1,5 +1,7 @@
 /* Arpit
 */
+#ifndef INTERPOLATION_HPP
+#define INTERPOLATION_HPP
 #include <stdio.h>
 #include <highgui/highgui.hpp>
 #include <imgproc/imgproc.hpp>
@@ -138,3 +140,4 @@ namespace Interpolation {
 	}
 }
 
+#endif

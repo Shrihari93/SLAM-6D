@@ -5,6 +5,7 @@
 #include <imgproc/imgproc.hpp>
 #include <iostream>
 #include <fstream>
+#include "interpolation.hpp"
 using namespace cv;
 using namespace std;
 #define INF 99999999
@@ -14,64 +15,15 @@ using namespace std;
 
 typedef Vec2s DisparityElemType;
 // All blocksize/windowsize definitions here global.
-static const int BLOCKSIZE = 40;
-static const int BLOCK_MULT_Y = 5;
-static const int BLOCK_MULT_X = 5;
-static const int WINDOWSIZE_Y = BLOCKSIZE * BLOCK_MULT_Y;
-static const int WINDOWSIZE_X = BLOCKSIZE * BLOCK_MULT_X;
+static const int STAGES = 6;
+static const int BLOCKSIZES[STAGES] = {320, 160, 80, 40, 20, 10};
+static const int BLOCK_MULT_Y = 2;
+static const int BLOCK_MULT_X = 2;
+// #define WINDOWSIZE_Y(i)  (BLOCKSIZES[i] * BLOCK_MULT_Y)
+// #define WINDOWSIZE_X(i)  (BLOCKSIZES[i] * BLOCK_MULT_X)
 
 namespace BlockMatching
 {
-	/*[1]*/
-	double sumOfSquaresDiffScaled(const Mat m1, const Mat m2)
-	{
-		/* Better would be to normalize submatrices HERE rather than globally (possibly more accurate, but more computation1)
-		*/
-		/*Mat m1 = m1_orig.clone();		
-		Mat m2 = m2_orig.clone();
-		cv::normalize(m1, m1, 0, 255, CV_MINMAX);
-		cv::normalize(m2, m2, 0, 255, CV_MINMAX);*/
-		assert(m1.size() == m2.size());
-		assert(m1.type() == CV_8UC1 && m2.type() == CV_8UC1);
-		float result = 0, sum = 0;
-		for (int i = 0; i < m1.rows; ++i)
-		{
-			for (int j = 0; j < m1.cols; ++j)
-			{
-				int v1 = m1.at<unsigned char>(i,j);
-				int v2 = m2.at<unsigned char>(i,j);
-				result += (v1-v2)*(v1-v2);
-				sum += v1;
-			}
-		}
-		return result/(sum*sum);
-	}
-	/* implements [1] */
-	Rect matchABlock1(Mat block1, Mat dst, Mat = Mat(), int = 0)//block1 must be square and < dst size. rect returned from parent image of dst
-	{
-		assert(block1.rows == block1.cols);
-		int blockSize = block1.rows;
-		int minDelI=INF, minDelJ=INF;
-		float minDiff=INF;
-		for (int i2 = 0; i2 < dst.rows - blockSize; ++i2)
-		{
-			for (int j2 = 0; j2 < dst.cols-blockSize; ++j2)
-			{
-				Mat block2 = dst.rowRange(i2, i2+blockSize).colRange(j2, j2+blockSize);
-				//calc diff, using [1]
-				double diff = sumOfSquaresDiffScaled(block1, block2);
-				if(diff < minDiff)
-				{
-					minDiff = diff;
-					minDelI = i2-0;
-					minDelJ = j2-0;
-				}
-			}
-		}
-		Size size; Point ofs;
-		dst.locateROI(size, ofs);
-		return Rect(ofs.x+minDelJ, ofs.y+minDelI, blockSize, blockSize);
-	}
 	/* implements opencv template matching */
 	Rect matchABlock2(Mat block1, Mat dst, Mat result, int match_method = CV_TM_CCOEFF_NORMED)
 	{
@@ -100,14 +52,15 @@ namespace BlockMatching
 		else if(x > max)
 			x = max;
 	}
-	Mat blockMatching(Mat src1, Mat src2, float theta, int shiftI = 0, int shiftJ = 0)
+	void blockMatching(Mat& src1_new, Mat& src2_new, Mat& current, int stage)
 	{
-		assert(src1.size() == src2.size());
+		assert(src1_new.size() == src2_new.size());
+		assert(stage >= 0 && stage < STAGES);
+		int BLOCKSIZE = BLOCKSIZES[stage];
+		int WINDOWSIZE_Y = (BLOCKSIZE * BLOCK_MULT_Y);
+		int WINDOWSIZE_X = (BLOCKSIZE * BLOCK_MULT_X);
 		///need to resize image to add border if BLOCKSIZE doesnt exactly match.		
-		Mat src1_new, src2_new;
-		copyMakeBorder(src1, src1_new, 0,  -((-src1.size().height)%BLOCKSIZE), 0, -((-src1.size().width)%BLOCKSIZE), BORDER_REPLICATE);
-		copyMakeBorder(src2, src2_new, 0,  -((-src1.size().height)%BLOCKSIZE), 0, -((-src1.size().width)%BLOCKSIZE), BORDER_REPLICATE);
-		Mat result(src1_new.size(), CV_16SC2); //channel1  = disparity, channel2 = perpendicular
+		Mat &result = current;
 		///Initializing mat used for storage by matchABlock2.
 		int match_cols = 2*WINDOWSIZE_X + BLOCKSIZE - BLOCKSIZE + 1;
 		int match_rows = 2*WINDOWSIZE_Y + BLOCKSIZE - BLOCKSIZE + 1;		
@@ -118,6 +71,9 @@ namespace BlockMatching
 			{
 				//created block from image 1
 				Mat block1 = src1_new.rowRange(i1, i1+BLOCKSIZE).colRange(j1, j1+BLOCKSIZE);
+				//assuming shiftI and shiftJ from previous stage
+				int shiftI = current.at<DisparityElemType>(i1,j1)[0];
+				int shiftJ = current.at<DisparityElemType>(i1,j1)[1];
 				//defining roi for search in src2_new
 				int cntrI = i1+shiftI;
 				int cntrJ = j1+shiftJ;
@@ -136,8 +92,8 @@ namespace BlockMatching
 				float delJ = (rect.x - j1);
 				float delI = (rect.y - i1);
 
-				float dispTheta = delJ * sin(theta) + delI * cos(theta);
-				float disp90 = delJ * cos(theta) + delI * sin(theta);
+				// float dispTheta = delJ * sin(theta) + delI * cos(theta);
+				// float disp90 = delJ * cos(theta) + delI * sin(theta);
 				//basic outlier removal
 				// if(delI > 30)
 				// 	delI = 0;
@@ -147,22 +103,59 @@ namespace BlockMatching
 				{
 					for (int j = j1; j < j1+BLOCKSIZE; ++j)
 					{
-						result.at<DisparityElemType >(i,j)[0] = abs(dispTheta);
-						result.at<DisparityElemType >(i,j)[1] = abs(disp90);
+						result.at<DisparityElemType >(i,j)[0] = abs(delI);
+						result.at<DisparityElemType >(i,j)[1] = abs(delJ);
 					}
 				}				
 			}
 		}
-		return result;
 	}
-	void outlierRemoval(Mat &result) {
-		
-	}
-	Mat blockMatchingLeveled(Mat &disparityPrev, Mat src1, Mat src2)
+	/// converts i,j disp to theta,theta+90 disp.
+	void convertAlongTheta(Mat &disp, float theta)
 	{
-		/// assuming resolution of prev  is EXACTLY half of current;
+		for (int i = 0; i < disp.rows; ++i)
+		{
+			for (int j = 0; j < disp.cols; ++j)
+			{
+				float delI = disp.at<DisparityElemType>(i,j)[0];
+				float delJ = disp.at<DisparityElemType>(i,j)[1];
+				float dispTheta = delJ * sin(theta) + delI * cos(theta);
+				float disp90 = delJ * cos(theta) + delI * sin(theta);
+				disp.at<DisparityElemType>(i,j)[0] = abs(dispTheta);
+				disp.at<DisparityElemType>(i,j)[1] = abs(disp90);
+			}
+		}
+	}
+	Mat pyramidalMatching(Mat src1, Mat src2, float theta)
+	{
 		assert(src1.size() == src2.size());
-		/// not implemented
+		Mat result;
+		int stage = 0;
+		while(BLOCKSIZES[stage] > min(src1.rows, src1.cols))
+			stage++;
+		Mat src1_new, src2_new;
+		assert(stage < STAGES);
+		{
+			int BLOCKSIZE = BLOCKSIZES[stage];
+			int WINDOWSIZE_Y = (BLOCKSIZE * BLOCK_MULT_Y);
+			int WINDOWSIZE_X = (BLOCKSIZE * BLOCK_MULT_X);
+			///need to resize image to add border if BLOCKSIZE doesnt exactly match.		
+			copyMakeBorder(src1, src1_new, 0,  -((-src1.size().height)%BLOCKSIZE), 0, -((-src1.size().width)%BLOCKSIZE), BORDER_REPLICATE);
+			copyMakeBorder(src2, src2_new, 0,  -((-src1.size().height)%BLOCKSIZE), 0, -((-src1.size().width)%BLOCKSIZE), BORDER_REPLICATE);
+			result = Mat::zeros(src1_new.size(), CV_16SC2); //channel1  = disparity, channel2 = perpendicular
+		}
+		while(stage < STAGES)
+		{
+			blockMatching(src1_new, src2_new, result, stage);
+			printf("stage %d done...\n", stage-1);
+			vector<Mat> planes;
+			split(result, planes);
+			planes[0] = Interpolation::smooth<int>(planes[0], BLOCKSIZES[stage]);
+			planes[1] = Interpolation::smooth<int>(planes[1], BLOCKSIZES[stage]);
+			stage++;
+		}
+		convertAlongTheta(result, theta);
+		return result;
 	}
 }
 
@@ -208,7 +201,7 @@ int main(int argc, char const *argv[])
 	}
 	cv::normalize(img1, img1, 0, 255, CV_MINMAX);	
 	cv::normalize(img2, img2, 0, 255, CV_MINMAX);
-	Mat result = BlockMatching::blockMatching(img1, img2, angle, shiftI, shiftJ);
+	Mat result = BlockMatching::pyramidalMatching(img1, img2, angle);
 	vector<Mat> planes;
 	split(result, planes);
 	assert(planes.size() == 2);
