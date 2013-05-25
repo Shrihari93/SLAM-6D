@@ -129,7 +129,8 @@ namespace Interpolation {
 		// Mat sobInvalids = invalidsx+invalidsy+invalidsxy;
 		// convertScaleAbs(sobInvalids, sobInvalids);
 		myFilter(src, invalids);
-		filterThreshold<uchar>(invalids, 0, 20);
+		filterThreshold<T>(invalids, 0, 0);
+		convertScaleAbs(invalids, invalids);
 		Mat dst = interpolate<T>(src, invalids, 1);
 		resize(dst, dst, origSize, 0, 0, INTER_NEAREST);
 		resize(src, src, origSize, 0, 0, INTER_NEAREST);
