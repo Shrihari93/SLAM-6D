@@ -11,12 +11,12 @@ using namespace std;
 #define WINDOWNAME1 "Display1"
 #define WINDOWNAME2 "DIsplay2"
 
-
 typedef Vec2s DisparityElemType;
 // All blocksize/windowsize definitions here global.
 static const int BLOCKSIZE = 40;
 static const int BLOCK_MULT_Y = 5;
 static const int BLOCK_MULT_X = 5;
+
 static const int WINDOWSIZE_Y = BLOCKSIZE * BLOCK_MULT_Y;
 static const int WINDOWSIZE_X = BLOCKSIZE * BLOCK_MULT_X;
 
@@ -143,6 +143,11 @@ namespace BlockMatching
 				// 	delI = 0;
 				// if(delJ > 30)
 				// 	delJ = 0;
+				//using only shift... else is pretty useless since right now rect width and height are fixed at BLOCKSIZE
+				// if(abs(delI) > 70)
+				// 	delI = -INF;
+				// if(abs(delJ) > 70)
+				// 	delJ = -INF;
 				for (int i = i1; i < i1+BLOCKSIZE; ++i)
 				{
 					for (int j = j1; j < j1+BLOCKSIZE; ++j)
@@ -155,14 +160,55 @@ namespace BlockMatching
 		}
 		return result;
 	}
-	void outlierRemoval(Mat &result) {
-		
-	}
 	Mat blockMatchingLeveled(Mat &disparityPrev, Mat src1, Mat src2)
 	{
-		/// assuming resolution of prev  is EXACTLY half of current;
+		//assuming resolution of prev  is EXACTLY half of current;
+		cout << src1.size() << " " << disparityPrev.size();
 		assert(src1.size() == src2.size());
-		/// not implemented
+		assert(disparityPrev.cols == src1.cols/2 && disparityPrev.rows == src1.rows/2);
+		Mat src1_new, src2_new;
+		copyMakeBorder(src1, src1_new, 0,  0, 0, 0, BORDER_REPLICATE);
+		copyMakeBorder(src2, src2_new, 0,  0, 0, 0, BORDER_REPLICATE);
+		Mat result(src1_new.size(), CV_16SC2); //channel1  = delI, channel2 = delJ
+		//Initializing mat used for storage by matchABlock2.
+		int match_cols = 2*WINDOWSIZE_X + BLOCKSIZE - BLOCKSIZE + 1;
+		int match_rows = 2*WINDOWSIZE_Y + BLOCKSIZE - BLOCKSIZE + 1;		
+		Mat matchingStorage(match_cols, match_rows, CV_32FC1);
+		for (int i1 = 0; i1 < src1_new.rows; i1+=BLOCKSIZE)
+		{
+			for (int j1 = 0; j1 < src1_new.cols; j1+=BLOCKSIZE)
+			{
+				//created block from image 1
+				Mat block1 = src1_new.rowRange(i1, i1+BLOCKSIZE).colRange(j1, j1+BLOCKSIZE);
+				//calc point around which to centre window:
+				int centreDelI = disparityPrev.at<DisparityElemType>(i1/2, j1/2)[0];
+				int centreDelJ = disparityPrev.at<DisparityElemType>(i1/2, j1/2)[1];
+
+				//defining roi for search in src2_new
+				int rowStart = std::max(0, i1+centreDelI-WINDOWSIZE_Y);
+				int rowEnd = std::min(src2_new.rows, i1+centreDelI+WINDOWSIZE_Y);
+				int colStart = std::max(0, j1+centreDelJ-WINDOWSIZE_X);
+				int colEnd = std::min(src2_new.cols, j1+centreDelJ+WINDOWSIZE_X);
+				Mat roi_src2 = src2_new.rowRange(rowStart, rowEnd).colRange(colStart, colEnd);
+				//finding matched rect
+				Rect rect = matchABlock2(block1, roi_src2, matchingStorage);
+				//using only shift... else is pretty useless since right now rect width and height are fixed at BLOCKSIZE
+				int delJ = abs(rect.x - j1);
+				int delI = abs(rect.y - i1); 
+				for (int i = i1; i < i1+BLOCKSIZE; ++i)
+				{
+					for (int j = j1; j < j1+BLOCKSIZE; ++j)
+					{
+						result.at<DisparityElemType >(i,j)[0] = abs(delJ);
+						result.at<DisparityElemType >(i,j)[1] = abs(delI);
+					}
+				}				
+			}
+		}
+		return result;
+	}
+	void outlierRemoval(Mat &result) {
+		
 	}
 }
 
