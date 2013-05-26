@@ -148,15 +148,15 @@ namespace BlockMatching
 		{
 			blockMatching(src1_new, src2_new, result, stage);
 			printf("stage %d done...\n", stage);
-			vector<Mat> planes;
-			split(result, planes);
-			convertScaleAbs(planes[0], planes[0]);
-			convertScaleAbs(planes[1], planes[1]);
-			imshow("i", planes[0]);
-			imshow("j", planes[1]);
-			waitKey(0);
-			planes[0] = Interpolation::smooth<int>(planes[0], BLOCKSIZES[stage]);
-			planes[1] = Interpolation::smooth<int>(planes[1], BLOCKSIZES[stage]);
+			// vector<Mat> planes;
+			// split(result, planes);
+			// convertScaleAbs(planes[0], planes[0]);
+			// convertScaleAbs(planes[1], planes[1]);
+			// imshow("i", planes[0]);
+			// imshow("j", planes[1]);
+			// waitKey(0);
+			// planes[0] = Interpolation::smooth<int>(planes[0], BLOCKSIZES[stage]);
+			// planes[1] = Interpolation::smooth<int>(planes[1], BLOCKSIZES[stage]);
 			stage++;
 		}
 		convertAlongTheta(result, theta);
