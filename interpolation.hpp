@@ -21,8 +21,8 @@ namespace Interpolation {
 							{+1, 0},
 							{+1, 1}};
 	struct IPoint {
-		int i, j, val;
-		IPoint(int i, int j, int val):i(i), j(j), val(val) {}
+		int i, j;
+		IPoint(int i, int j):i(i), j(j) {}
 		//reverse sort. not using val at all ><
 		bool operator <(const IPoint &b) const {
 			if(i < b.i)
@@ -61,13 +61,13 @@ namespace Interpolation {
 				if(!invalids.at<uchar>(i*blockSize,j*blockSize))
 					dst.at<T>(i,j) = src.at<T>(i*blockSize, j*blockSize);
 				else
-					invalidList.insert(IPoint(i,j,invalids.at<uchar>(i*blockSize,j*blockSize)));
+					invalidList.insert(IPoint(i,j));
 			}
 		}
 		int iter = 0;
 		while(invalidList.size()) {
 			++iter;
-			for (set<IPoint>::iterator k = invalidList.begin(); k != invalidList.end(); ++k)
+			for (set<IPoint>::iterator k = invalidList.begin(); k != invalidList.end(); )
 			{
 				int i = k->i;
 				int j = k->j;
@@ -79,15 +79,22 @@ namespace Interpolation {
 					int nj = (j+neighbours[l][1]);
 					if(ni < 0 || ni >= dst.rows || nj < 0 || nj >= dst.cols)
 						continue;
-					if(invalidList.find(IPoint(ni,nj,0)) == invalidList.end()) {
+					if(invalidList.find(IPoint(ni,nj)) == invalidList.end()) {
 						count++;
 						sum += dst.at<T>(ni, nj);
 					}
 				}
 				if(count > 0) {
 					/// Some neighbour(s) valid. removing from invalid list.
-					invalidList.erase(k);
+					set<IPoint>::iterator t = k;
+					++k;
+					invalidList.erase(t);
 					dst.at<T>(i,j) = (T)(sum/count);
+					if(!invalidList.size())
+						break;
+				}
+				else {
+					++k;
 				}
 			}
 		}
@@ -129,14 +136,14 @@ namespace Interpolation {
 		// Mat sobInvalids = invalidsx+invalidsy+invalidsxy;
 		// convertScaleAbs(sobInvalids, sobInvalids);
 		myFilter(src, invalids);
-		filterThreshold<T>(invalids, 0, 0);
 		convertScaleAbs(invalids, invalids);
+		filterThreshold<uchar>(invalids, 0, 12);
 		Mat dst = interpolate<T>(src, invalids, 1);
 		resize(dst, dst, origSize, 0, 0, INTER_NEAREST);
 		resize(src, src, origSize, 0, 0, INTER_NEAREST);
 		resize(invalids, invalids, origSize, 0, 0, INTER_NEAREST);
-		imshow("sobel result, filtered", invalids);
-		waitKey(0);
+		// imshow("sobel result, filtered", invalids);
+		// waitKey(0);
 		return dst;
 	}
 }

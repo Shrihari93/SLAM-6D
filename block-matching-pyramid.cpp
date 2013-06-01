@@ -6,6 +6,8 @@
 #include <iostream>
 #include <fstream>
 #include "interpolation.hpp"
+#include <stdlib.h>
+#include <time.h>
 using namespace cv;
 using namespace std;
 #define INF 99999999
@@ -15,10 +17,10 @@ using namespace std;
 
 typedef Vec2s DisparityElemType;
 // All blocksize/windowsize definitions here global.
-static const int STAGES = 6;
-static const int BLOCKSIZES[STAGES] = {320, 160, 80, 40, 20, 10};
-static const int BLOCK_MULT_Y = 2;
-static const int BLOCK_MULT_X = 2;
+static const int STAGES = 7;
+static const int BLOCKSIZES[STAGES] = {640,320, 160, 80, 40, 20, 10};
+static const float BLOCK_MULT_Y = 2;
+static const float BLOCK_MULT_X = 2;
 // #define WINDOWSIZE_Y(i)  (BLOCKSIZES[i] * BLOCK_MULT_Y)
 // #define WINDOWSIZE_X(i)  (BLOCKSIZES[i] * BLOCK_MULT_X)
 
@@ -106,7 +108,7 @@ namespace BlockMatching
 						result.at<DisparityElemType >(i,j)[0] = abs(delI);
 						result.at<DisparityElemType >(i,j)[1] = abs(delJ);
 					}
-				}				
+				}
 			}
 		}
 	}
@@ -148,7 +150,8 @@ namespace BlockMatching
 		{
 			blockMatching(src1_new, src2_new, result, stage);
 			printf("stage %d done...\n", stage);
-			// vector<Mat> planes;
+
+			vector<Mat> planes;
 			// split(result, planes);
 			// convertScaleAbs(planes[0], planes[0]);
 			// convertScaleAbs(planes[1], planes[1]);
@@ -166,9 +169,10 @@ namespace BlockMatching
 
 int main(int argc, char const *argv[])
 {
+	srand(time(NULL));
 	if(argc < 3 || argc > 5) {
-		printf("Usage: ./block-matching-2 <image1> <image2>\n");
-		printf("Optionally: ./block-matching-2 <image1> <image2> <orsa-match-file> <angle>\n");
+		printf("Usage: ./block-matching-pyramid <image1> <image2>\n");
+		printf("Optionally: ./block-matching-pyramid <image1> <image2> <orsa-match-file> <angle>\n");
 		exit(0);
 	}
 	Mat img1 = imread(argv[1],CV_LOAD_IMAGE_GRAYSCALE);

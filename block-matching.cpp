@@ -12,8 +12,8 @@ using namespace std;
 #define WINDOWNAME2 "DIsplay2"
 
 typedef Vec2f DisparityElemType;
-static const int BLOCKSIZE = 30;
-static const int BLOCK_MULT = 3;
+static const int BLOCKSIZE = 40;
+static const int BLOCK_MULT = 5;
 static const int WINDOWSIZE = BLOCKSIZE * BLOCK_MULT;
 
 struct MouseParam //For Debugging purposes

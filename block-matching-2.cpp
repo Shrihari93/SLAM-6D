@@ -258,8 +258,8 @@ int main(int argc, char const *argv[])
 	vector<Mat> planes;
 	split(result, planes);
 	assert(planes.size() == 2);
-	convertScaleAbs(planes[0], planes[0]);
-	convertScaleAbs(planes[1], planes[1]);
+	// convertScaleAbs(planes[0], planes[0]);
+	// convertScaleAbs(planes[1], planes[1]);
 	// cv::normalize(planes[0], planes[0], 0, 255, CV_MINMAX);
 	// cv::normalize(planes[1], planes[1], 0, 255, CV_MINMAX);
 	imshow("disp", planes[0]);
