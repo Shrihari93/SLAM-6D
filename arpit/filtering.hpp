@@ -27,7 +27,7 @@ namespace Filter {
     float range1[] = {minVal,maxVal+1};
     minMaxLoc(block2, &minVal, &maxVal, &minPoint, &maxPoint);
     float range2[] = {minVal,maxVal+1};
-    int histSize[] = {range1[1] - range1[0], range2[1] - range2[0]};
+    int histSize[] = {(range1[1] - range1[0]), (range2[1] - range2[0])};
     const float * histRange[] = { range1, range2};
     Mat mArr[] = {block1, block2};
     /// we compute the histogram from the 0-th and 1-st channels
@@ -42,9 +42,9 @@ namespace Filter {
     maxPoint.x += range2[0];
     maxPoint.y += range1[0];
     // cout << maxPoint << " " << minPoint << endl;
-    resize(result, result, cv::Size(result.cols*3, result.rows*3), 0, 0, INTER_NEAREST);
-    imshow("1", result);
-    waitKey();
+    // resize(result, result, cv::Size(result.cols*3, result.rows*3), 0, 0, INTER_NEAREST);
+    // imshow("1", result);
+    // waitKey();
     if(pmodalValue)
       *pmodalValue = maxVal;
     return maxPoint;
@@ -58,6 +58,9 @@ namespace Filter {
     Point ret = getModalPoint(planes[0], planes[1], pmodalValue);
     merge(planes, block);
     return ret;
+  }
+  Point getMeanPoint(Mat block1, Mat block2, double *pmeanValue = NULL) {
+
   }
   /// block has to be 2 channel
   /// channel1 is delI, channel2 is delJ
@@ -84,7 +87,7 @@ namespace Filter {
       return p1.x > p2.x? true: p2.x > p1.x ? false: p1.y > p2.y;
     }
   };
-  /// has to be a single channel image! for 2 channel, split and apply seperately, the merge.
+  /// has to be a single channel image! for 2 channel, split and apply seperately, then merge.
   /// modifies src itself.
   template<typename T>
   void nnInterpolation(vector<Point> &wrongPoints, Mat &src) {
@@ -156,10 +159,12 @@ namespace Filter {
   /// applies getModalPoint, getWrongPoints and nnInterpolation on src1 and src2
   /// input images should not be blocky!
   /// blockSize is for region to consider for modal evaluation
+  /// most prob(!) src1 is I, src2 is J.
+  template <typename T>
   void applyModalFilter(Mat src1, Mat src2, int blockSize, double sdI, double sdJ) {
     assert(src1.size() == src2.size());
     assert(src1.rows >= blockSize && src1. cols >= blockSize);
-    std::vector<Point,ClassComp> gWrongPoints;
+    std::vector<Point> gWrongPoints;
     for (int i = 0; i < src1.rows-blockSize+1; i += blockSize)
     {
       for (int j = 0; j < src1.cols-blockSize+1; j += blockSize)
@@ -170,8 +175,7 @@ namespace Filter {
         int colEnd = std::min(src1.cols, j+blockSize);
         Mat roi_src1 = src1.rowRange(rowStart, rowEnd).colRange(colStart, colEnd);
         Mat roi_src2 = src2.rowRange(rowStart, rowEnd).colRange(colStart, colEnd);
-        Mat b1;
-        Mat b2;
+        Mat b1, b2;
         roi_src1.convertTo(b1, CV_32FC1);
         roi_src2.convertTo(b2, CV_32FC1);
         Point p = getModalPoint(b1, b2, NULL);
@@ -180,15 +184,16 @@ namespace Filter {
         Mat dst;
         merge(mArr, dst);
         std::vector<Point> wPoints = getWrongPoints<Vec2f>(p.y, p.x, dst, sdI, sdJ);
-        for (int l = 0; l < wPoints.szie(); ++l)
+        for (int l = 0; l < wPoints.size(); ++l)
         {
           wPoints[l].x += j;
           wPoints[l].y += i;
         }
-        gWrongPoints.append(wPoints.begin(), wPoints.end());        
+        gWrongPoints.insert(gWrongPoints.end(), wPoints.begin(), wPoints.end());        
       }
     }
-    
+    nnInterpolation<T>(gWrongPoints, src1);
+    nnInterpolation<T>(gWrongPoints, src2);
   }
 }
 #endif

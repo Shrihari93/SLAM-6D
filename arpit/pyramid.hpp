@@ -108,8 +108,8 @@ namespace BlockMatching
         {
           for (int j = j1; j < j1+BLOCKSIZE; ++j)
           {
-            result.at<DisparityElemType >(i,j)[0] = abs(delI);
-            result.at<DisparityElemType >(i,j)[1] = abs(delJ);
+            result.at<DisparityElemType >(i,j)[0] = (delI);
+            result.at<DisparityElemType >(i,j)[1] = (delJ);
           }
         }
       }
@@ -135,9 +135,8 @@ namespace BlockMatching
   {
     assert(src1.size() == src2.size());
     Mat result;
-    int stage = 0;
-    while(BLOCKSIZES[stage] > min(src1.rows, src1.cols)/3)
-      stage++;
+    int stage = -1;
+    while(BLOCKSIZES[++stage] > min(src1.rows, src1.cols)/5);
     Mat src1_new, src2_new;
     assert(stage < STAGES);
     {
@@ -147,17 +146,29 @@ namespace BlockMatching
       ///need to resize image to add border if BLOCKSIZE doesnt exactly match.    
       copyMakeBorder(src1, src1_new, 0,  -((-src1.size().height)%BLOCKSIZE), 0, -((-src1.size().width)%BLOCKSIZE), BORDER_REPLICATE);
       copyMakeBorder(src2, src2_new, 0,  -((-src1.size().height)%BLOCKSIZE), 0, -((-src1.size().width)%BLOCKSIZE), BORDER_REPLICATE);
-      result = Mat::zeros(src1_new.size(), CV_16SC2); //channel1  = disparity, channel2 = perpendicular
+      result = Mat::zeros(src1_new.size(), CV_16SC2); ///channel1  = disparity, channel2 = perpendicular
     }
     while(stage < STAGES)
     {
       blockMatching(src1_new, src2_new, result, stage);
       printf("stage %d done...\n", stage);
-
-      
+      // resize(result, result, Size(src1_new.cols/BLOCKSIZES[stage], src1_new.rows/BLOCKSIZES[stage]), 0, 0, INTER_NEAREST);
+      // vector<Mat> planes;
+      // split(result, planes);
+      // Mat tempI, tempJ;
+      // Filter::applyModalFilter<short>(planes[0], planes[1], 7, 1000/(stage+1), 100);
+      // convertScaleAbs(planes[0], tempI);
+      // convertScaleAbs(planes[1], tempJ);
+      // resize(tempJ, tempJ, src1_new.size(), 0, 0, INTER_NEAREST);
+      // resize(tempI, tempI, src1_new.size(), 0, 0, INTER_NEAREST);
+      // imshow("1", tempI);
+      // imshow("2", tempJ);
+      // waitKey(0);
+      // merge(planes, result);
+      // resize(result, result, src1_new.size(), 0, 0, INTER_NEAREST);
       stage++;
     }
-    // convertAlongTheta(result, theta);
+    convertAlongTheta(result, theta);
     return result;
   }
 }
