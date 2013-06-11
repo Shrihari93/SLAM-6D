@@ -9,7 +9,7 @@ IplImage * createImage(int w, int h)
 }
 int main()
 {
-    IplImage* aft1  =cvLoadImage("aft.jpg",CV_LOAD_IMAGE_GRAYSCALE);
+  IplImage* aft1  =cvLoadImage("aft.jpg",CV_LOAD_IMAGE_GRAYSCALE);
 	IplImage* fore1 =cvLoadImage("fore.jpg",CV_LOAD_IMAGE_GRAYSCALE);
 
 	if(!aft1 || !fore1)

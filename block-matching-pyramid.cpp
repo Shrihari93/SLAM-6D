@@ -17,10 +17,10 @@ using namespace std;
 
 typedef Vec2s DisparityElemType;
 // All blocksize/windowsize definitions here global.
-static const int STAGES = 7;
-static const int BLOCKSIZES[STAGES] = {640,320, 160, 80, 40, 20, 10};
+static const int STAGES = 6;
+static const int BLOCKSIZES[STAGES] = {320, 160, 80, 40, 20, 10};
 static const float BLOCK_MULT_Y = 2;
-static const float BLOCK_MULT_X = 2;
+static const float BLOCK_MULT_X = 1.0;
 // #define WINDOWSIZE_Y(i)  (BLOCKSIZES[i] * BLOCK_MULT_Y)
 // #define WINDOWSIZE_X(i)  (BLOCKSIZES[i] * BLOCK_MULT_X)
 
