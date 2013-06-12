@@ -96,14 +96,18 @@ namespace BlockMatching
         //the start rows/cols and end rows/cols
         rowStart = std::max(0, cntrI-BLOCKSIZE);
         rowEnd = std::min(src2.rows, cntrI+WINDOWSIZE_Y);
-        colStart = std::max(0, cntrJ-WINDOWSIZE_X);
-        colEnd = std::min(src2.cols, cntrJ+WINDOWSIZE_X);
+        colStart = std::max(0, cntrJ-WINDOWSIZE_X/2-4);
+        colEnd = std::min(src2.cols, cntrJ+WINDOWSIZE_X/2+4);
+        if(colEnd-colStart < block1.cols) {
+          colStart = std::max(0, cntrJ-WINDOWSIZE_X);
+          colEnd = std::min(src2.cols, cntrJ+WINDOWSIZE_X);
+        }
         Mat roi_src2 = src2.rowRange(rowStart, rowEnd).colRange(colStart, colEnd);
         //finding matched rect
         Rect rect = matchABlock2(block1, roi_src2, matchingStorage);
         /// disparity
-        float delJ = (rect.x+rect.width/2 - j1);
-        float delI = (rect.y+rect.height/2 - i1);
+        float delJ = (rect.x+rect.width/2 - j1);//-current.at<DisparityElemType>(i1,j1)[1];
+        float delI = (rect.y+rect.height/2 - i1);//-current.at<DisparityElemType>(i1,j1)[0];
         result.at<DisparityElemType >(i1,j1)[0] = (delI);
         result.at<DisparityElemType >(i1,j1)[1] = (delJ);
       }

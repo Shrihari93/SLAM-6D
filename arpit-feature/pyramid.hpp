@@ -49,13 +49,14 @@ namespace BlockMatching
       Mat &img1 = resized1[stage];
       Mat &img2 = resized2[stage];
       Mat mask = Corners::harrisCorner(img1, 0.20*img1.rows*img1.cols);
-      Mat scattered = BlockMatching::blockMatching(mask, img1, img2, current, 24+stage+stage%2, !stage, shiftJ);
+      Mat scattered = BlockMatching::blockMatching(mask, img1, img2, current, 18+4*stage, !stage, shiftJ);
       vector<Mat> planes;
       split(scattered, planes);
       assert(planes.size() == 2);
       Mat temp;
       convertScaleAbs(planes[0], temp);
-      result = Filter::applyModalFilter(mask, planes[0], planes[1], 30);
+      result = Filter::applyModalFilter(mask, planes[0], planes[1], 30+stage*2);
+      // result += current;
       imshow("1", temp);
       imshow("mask", mask);
       // imshow("result", result);
