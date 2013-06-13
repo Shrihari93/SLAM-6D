@@ -8,6 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
+#include <csa.h>
 #include <time.h>
 #include <set>
 #include <vector>
@@ -159,6 +160,78 @@ namespace Filter {
         }
       }
     }
+    return result;
+  }
+  /// uses cubic spline interpolation from csa.
+  /// very shitty code sorry
+  Mat interpolate2(Mat centroids, Mat values, int blockSize) {
+    assert(centroids.size() == values.size());
+    point *inputI = new point[centroids.cols*centroids.rows];
+    point *inputJ = new point[centroids.cols*centroids.rows];
+    for (int i = 0; i < centroids.rows; ++i)
+    {
+      for (int j = 0; j < centroids.cols; ++j)
+      {
+        point tp;
+        tp.x = centroids.at<DisparityElemType>(i,j)[1];
+        tp.y = centroids.at<DisparityElemType>(i,j)[0];
+        tp.z = values.at<DisparityElemType>(i,j)[0];
+        inputI[i*centroids.cols+j] = tp;
+        tp.z = values.at<DisparityElemType>(i,j)[1];
+        inputJ[i*centroids.cols+j] = tp;
+      }
+    }
+    point *outputI = new point[centroids.cols*centroids.rows*blockSize*blockSize];
+    point *outputJ = new point[centroids.cols*centroids.rows*blockSize*blockSize];
+    for (int i = 0; i < centroids.rows*blockSize; ++i)
+    {
+      for (int j = 0; j < centroids.cols*blockSize; ++j)
+      {
+        point tp;
+        tp.x = j;
+        tp.y = i;
+        tp.z = 0;
+        outputI[i*centroids.cols*blockSize+j] = tp;
+        outputJ[i*centroids.cols*blockSize+j] = tp;
+      }
+    }
+    csa *c = csa_create();
+    csa_addpoints(c, centroids.cols*centroids.rows, inputI);
+    csa_setnpmin(c, 3);
+    csa_setnpmax(c, 20);
+    csa_setk(c, 200);
+    // csa_setnppc(c, 10);
+    // printf("calculating spline...\n");
+    csa_calculatespline(c);
+    // printf("done.\n");
+    csa_approximatepoints(c, centroids.cols*centroids.rows*blockSize*blockSize, outputI);
+    csa_destroy(c);
+
+    csa *d = csa_create();
+    csa_addpoints(d, centroids.cols*centroids.rows, inputJ);
+    csa_setnpmin(d, 3);
+    csa_setnpmax(d, 20);
+    csa_setk(d, 200);
+    // csa_setnppc(d, 10);
+    // printf("calculating spline...\n");
+    csa_calculatespline(d);
+    // printf("done.\n");
+    csa_approximatepoints(d, centroids.cols*centroids.rows*blockSize*blockSize, outputJ);
+    csa_destroy(d);
+
+    Mat result = Mat::zeros(Size(centroids.cols*blockSize, centroids.rows*blockSize), CV_16SC2);
+    int bigSize = centroids.cols*centroids.rows*blockSize*blockSize;
+    for(int idx = 0; idx < bigSize; idx++) {
+      int i = outputI[idx].y;
+      int j = outputI[idx].x;
+      short valI = outputI[idx].z;
+      short valJ = outputJ[idx].z;
+      result.at<DisparityElemType>(i, j) = DisparityElemType(valI, valJ);
+    }
+    delete[] inputI;
+    delete[] inputJ;
+    delete[] outputJ;
+    delete[] outputI;
     return result;
   }
   /// applies getModalPoint, getWrongPoints and interpolation on src1 and src2

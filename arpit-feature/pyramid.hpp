@@ -13,6 +13,7 @@
 #include "block-matching.hpp"
 #include <stdlib.h>
 #include <time.h>
+#include <csa.h>
 using namespace cv;
 using namespace std;
 #define INF 99999999
@@ -26,6 +27,46 @@ static const int STAGES = 4;
 
 namespace BlockMatching
 {  
+  Mat maskInterpolate(Mat mask, Mat scatteredI) {
+    assert(mask.size() == scatteredI.size());
+    vector<point> input, output;;
+    for (int i = 0; i < mask.rows; ++i)
+    {
+      for (int j = 0; j < mask.cols; ++j)
+      {
+        point tp;
+        tp.x = j;
+        tp.y = i;
+        tp.z = 0;
+        output.push_back(tp);
+        if(mask.at<uchar>(i,j)) {
+          tp.z = scatteredI.at<short>(i,j);
+          input.push_back(tp);
+        }
+      }
+    }
+    csa *c = csa_create();
+    csa_addpoints(c, input.size(), &input[0]);
+    csa_setnpmin(c, 3);
+    csa_setnpmax(c, 20);
+    csa_setk(c, 150);
+    // csa_setnppc(c, 10);
+    // printf("calculating spline...\n");
+    csa_calculatespline(c);
+    // printf("done.\n");
+    csa_approximatepoints(c, output.size(), &output[0]);
+    csa_destroy(c);
+    Mat result = scatteredI.clone();
+    for (int idx = 0; idx < output.size(); ++idx)
+    {
+      int i = output[idx].y;
+      int j = output[idx].x;
+      short val = output[idx].z;
+      result.at<short>(i, j) = val;
+    }
+    return result;
+  }
+
   Mat pyramidalMatching(Mat src1, Mat src2, int shiftJ)
   {
     assert(src1.size() == src2.size());
@@ -49,13 +90,18 @@ namespace BlockMatching
       Mat &img1 = resized1[stage];
       Mat &img2 = resized2[stage];
       Mat mask = Corners::harrisCorner(img1, 0.20*img1.rows*img1.cols);
-      Mat scattered = BlockMatching::blockMatching(mask, img1, img2, current, 18+4*stage, !stage, shiftJ);
+      Mat scattered = BlockMatching::blockMatching(mask, img1, img2, current, 18+2*stage, !stage, shiftJ);
       vector<Mat> planes;
       split(scattered, planes);
       assert(planes.size() == 2);
       Mat temp;
+      if(1) {
+        Mat finalScatteredInterpolated = maskInterpolate(mask, planes[0]);
+        convertScaleAbs(finalScatteredInterpolated, finalScatteredInterpolated); 
+        imshow("final", finalScatteredInterpolated);
+      }
       convertScaleAbs(planes[0], temp);
-      result = Filter::applyModalFilter(mask, planes[0], planes[1], 30);
+      result = Filter::applyModalFilter(mask, planes[0], planes[1], 28);
       cout << current.size() << " " << result.size() << endl;
       // result += current;
       imshow("1", temp);
