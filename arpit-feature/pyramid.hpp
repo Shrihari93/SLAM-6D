@@ -55,7 +55,8 @@ namespace BlockMatching
       assert(planes.size() == 2);
       Mat temp;
       convertScaleAbs(planes[0], temp);
-      result = Filter::applyModalFilter(mask, planes[0], planes[1], 30+stage*2);
+      result = Filter::applyModalFilter(mask, planes[0], planes[1], 30);
+      cout << current.size() << " " << result.size() << endl;
       // result += current;
       imshow("1", temp);
       imshow("mask", mask);
